@@ -1,0 +1,53 @@
+---
+/**
+ * GA4 affiliate click tracking.
+ * Fires on any <a data-sku> we inject (buttons/cards/links).
+ */
+---
+
+<script is:inline>
+  (function () {
+    const log = (...args) => console.debug('[AffiliateTracking]', ...args);
+
+    // Helpful startup log
+    log('init');
+
+    function sendClick(el) {
+      const payload = {
+        sku: el.dataset.sku || '',
+        source: el.dataset.source || '',
+        medium: el.dataset.medium || '',
+        campaign: el.dataset.campaign || '',
+        country: el.dataset.country || '',
+        post: el.dataset.post || '',
+        href: el.getAttribute('href') || ''
+      };
+      log('click', payload);
+
+      if (window.gtag) {
+        window.gtag('event', 'affiliate_click', {
+          event_category: 'affiliate',
+          event_label: payload.sku,
+          value: 1,
+          transport_type: 'beacon', // prefer beacon
+          ...payload
+        });
+      }
+    }
+
+    // Left/tap click
+    document.addEventListener('click', function (e) {
+      const el = e.target?.closest?.('a[data-sku]');
+      if (!el) return;
+      sendClick(el);
+    }, { capture: true });
+
+    // Middle click (open in new tab)
+    document.addEventListener('auxclick', function (e) {
+      if (e.button !== 1) return; // only middle button
+      const el = e.target?.closest?.('a[data-sku]');
+      if (!el) return;
+      sendClick(el);
+    }, { capture: true });
+  })();
+</script>
