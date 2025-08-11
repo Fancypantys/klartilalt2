@@ -1,0 +1,70 @@
+name: Content sync (hourly)
+
+on:
+  schedule:
+    - cron: "0 * * * *"   # hver hele time
+  workflow_dispatch: {}
+
+concurrency:
+  group: content-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # kræves for commit/push
+    env:
+      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+      AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+
+      AIRTABLE_POSTS_TABLE_ID: ${{ secrets.AIRTABLE_POSTS_TABLE_ID }}
+      AIRTABLE_POSTS_VIEW_ID: ${{ secrets.AIRTABLE_POSTS_VIEW_ID }}
+
+      AIRTABLE_AFF_TABLE_ID: ${{ secrets.AIRTABLE_AFF_TABLE_ID }}
+      AIRTABLE_AFF_VIEW_ID: ${{ secrets.AIRTABLE_AFF_VIEW_ID }}
+      AIRTABLE_PROD_TABLE_ID: ${{ secrets.AIRTABLE_PROD_TABLE_ID }}
+      AIRTABLE_PROD_VIEW_ID: ${{ secrets.AIRTABLE_PROD_VIEW_ID }}
+
+      AFF_TIMEZONE: Europe/Copenhagen
+      AFF_LOCALE: da-DK
+      AFF_DATA_DIR: src/data
+      POSTS_ALLOWED_STATUSES: Ready,Scheduled,Publish
+      POSTS_AUTO_INSERT_TOKENS: "true"
+
+      PUBLIC_GA_ID: ${{ secrets.PUBLIC_GA_ID }}
+      AFF_DEBUG: "false"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "pnpm"
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Sync content from Airtable
+        run: pnpm run sync:content
+
+      - name: Inject affiliates
+        run: pnpm run inject:affiliates
+
+      - name: Verify tokens (non-blocking)
+        run: pnpm run verify:affiliates || true
+
+      - name: Commit & push if changed
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          if [ -n "$(git status --porcelain)" ]; then
+            git add -A
+            git commit -m "chore(content): sync + affiliate inject"
+            git push
+          else
+            echo "No changes."
+          fi

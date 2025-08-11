@@ -8,7 +8,7 @@
     "sync:content": "node scripts/sync-content.mjs",
     "inject:affiliates": "node scripts/inject-affiliates.mjs",
     "verify:affiliates": "node scripts/verify-affiliates.mjs",
-    "prebuild": "pnpm run sync:content && pnpm run inject:affiliates && pnpm run verify:affiliates",
+    "prebuild": "node scripts/ci-prebuild.mjs",
     "build": "astro check && astro build && pagefind --site dist && cp -r dist/pagefind public/",
     "preview": "astro preview",
     "sync": "astro sync",
