@@ -188,10 +188,8 @@ function buildLink(row, { postSlug, dateStr }, opts = {}) {
 
   if (!base) return { url: "", resolved };
 
-  const hasQuery = base.includes("?");
-  theSep: {
-  }
-  const sep = base.includes("?") ? "&" : "?";
+const sep = base.includes("?") ? "&" : "?";
+
   const params = new URLSearchParams();
   if (resolved.source) params.set("utm_source", resolved.source);
   if (resolved.medium) params.set("utm_medium", resolved.medium);

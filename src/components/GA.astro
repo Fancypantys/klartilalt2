@@ -1,7 +1,7 @@
 ---
 /**
- * GA4 minimal snippet for Astro.
- * Reads PUBLIC_GA_ID from .env (e.g., G-CCYZGD8V2M).
+ * GA4 minimal snippet for Astro (no TS errors).
+ * Requires PUBLIC_GA_ID in .env (e.g. G-CCYZGD8V2M).
  */
 const GA_ID = import.meta.env.PUBLIC_GA_ID as string | undefined;
 ---
@@ -9,22 +9,13 @@ const GA_ID = import.meta.env.PUBLIC_GA_ID as string | undefined;
 {GA_ID && (
   <>
     <!-- Loader -->
-    <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
+   <script is:inline async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}></script>
+
 
     <!-- Init -->
-    <script is:inline define:vars={{ GA_ID }}>
-      (function () {
-        // GA bootstrap (same as Google's snippet)
-        // @ts-ignore - TS doesn't know about dataLayer until we declare it (see global.d.ts below)
-        window.dataLayer = window.dataLayer || [];
-        // @ts-ignore
-        function gtag(){ window.dataLayer.push(arguments); }
-        // @ts-ignore
-        window.gtag = gtag;
-
-        gtag('js', new Date());
-        gtag('config', GA_ID);
-      })();
-    </script>
+    <script
+      is:inline
+      set:html={`(function(){window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}window.gtag=gtag;gtag('js',new Date());gtag('config', ${JSON.stringify(GA_ID)});})();`}
+    />
   </>
 )}

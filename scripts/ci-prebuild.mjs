@@ -1,13 +1,15 @@
 // scripts/ci-prebuild.mjs
+import "dotenv/config";
 import { execSync } from "node:child_process";
 
+const isCI = String(process.env.CI || "").toLowerCase() === "true";
 const hasAirtable =
   !!process.env.AIRTABLE_TOKEN &&
   !!process.env.AIRTABLE_BASE_ID &&
   !!process.env.AIRTABLE_AFF_TABLE_ID;
 
-if (!hasAirtable) {
-  console.log("🔇 Skipping content sync (no Airtable env present).");
+if (isCI && !hasAirtable) {
+  console.log("🔇 Skipping content sync (no Airtable env present in CI).");
   process.exit(0);
 }
 
