@@ -1,7 +1,7 @@
 // scripts/sync-content.mjs
-// Airtable "Posts" -> Markdown filer i src/data/blog/**.
-// Laver frontmatter, slug, og (valgfrit) auto-indskyder affiliate-kort tokens
-// ud fra et SKUs-felt. Kører bedst sammen med inject-affiliates.mjs bagefter.
+// Airtable "Posts" -> Markdown i src/data/blog/**.
+// Inklusion: enten (A) Status matcher POSTS_ALLOWED_STATUSES, eller
+// (B) Publish-checkbox er true OG/ELLER Publication Date er ikke i fremtiden.
 
 import { writeFile, mkdir } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -14,35 +14,32 @@ const {
   AIRTABLE_TOKEN,
   AIRTABLE_BASE_ID,
 
-  // Posts tabel (brug IDs fra Airtable URL)
   AIRTABLE_POSTS_TABLE_ID,
   AIRTABLE_POSTS_VIEW_ID,
 
-  // Påkrævet når cellFormat=string (giver pæne tekstværdier)
   AFF_TIMEZONE = "Europe/Copenhagen",
   AFF_LOCALE = "da-DK",
-
-  // Udskrifts-roden til content
   AFF_DATA_DIR = "src/data",
 
-  // Feltnavne i "Posts" (ret hvis dine kolonner hedder noget andet)
-  POSTS_FIELD_STATUS = "Status",
+  // Feltmapping (tilpas til din tabel)
   POSTS_FIELD_TITLE = "Title",
   POSTS_FIELD_SLUG = "Slug",
-  POSTS_FIELD_TYPE = "Post Type",            // roundup | review | guide | ...
-  POSTS_FIELD_LANGUAGE = "Language",
-  POSTS_FIELD_COUNTRY = "Country",
+  POSTS_FIELD_BODY_MD = "body",
+  POSTS_FIELD_TYPE = "Category",
   POSTS_FIELD_TAGS = "Tags",
-  POSTS_FIELD_EXCERPT = "Excerpt",
-  POSTS_FIELD_BODY_MD = "Markdown",          // alternativt "Content"/"Body"
-  POSTS_FIELD_PUBLISH_AT = "Publish At",
-  POSTS_FIELD_HERO = "Hero Image",           // URL eller attachment
-  POSTS_FIELD_SKUS = "SKUs",                 // fx "SKU123, SKU456" / multiselect
+  POSTS_FIELD_PUBLISH_AT = "Publication Date",
+  POSTS_FIELD_PUBLISH_BOOL = "Publish",   // checkbox
+  POSTS_FIELD_SKUS = "Products",          // linket felt; kommer som kommasepareret streng i cellFormat=string
+  POSTS_FIELD_HERO = "OG Image",
+  POSTS_FIELD_LANGUAGE = "",              // valgfri
+  POSTS_FIELD_COUNTRY = "",               // valgfri
+  POSTS_FIELD_EXCERPT = "Description",    // valgfri: kort beskrivelse/uddrag
 
-  // Hvilke Status-værdier må blive til filer
-  POSTS_ALLOWED_STATUSES = "Ready,Scheduled,Publish",
+  // Status (ikke brugt hos dig – men understøttes hvis du tilføjer det senere)
+  POSTS_FIELD_STATUS = "",
+  POSTS_ALLOWED_STATUSES = "",
 
-  // Auto-indskyd affiliate tokens i bunden hvis der er SKUs?
+  // Auto-indskyd tokens nederst ud fra SKUs/Products
   POSTS_AUTO_INSERT_TOKENS = "true"
 } = process.env;
 
@@ -66,7 +63,7 @@ function chooseDirByType(typeRaw) {
   if (t.startsWith("roundup")) return "roundups";
   if (t.startsWith("review")) return "reviews";
   if (t.startsWith("guide")) return "guides";
-  return ""; // ellers læg i blog-roden
+  return ""; // ellers i blog-roden
 }
 
 async function fetchAirtablePosts() {
@@ -99,6 +96,14 @@ function determineSlug(title, slugField) {
   return slug;
 }
 
+function cleanUndefined(obj) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (v !== undefined && v !== null) out[k] = v;
+  }
+  return out;
+}
+
 function makeFrontmatter(row, extra = {}) {
   const title = norm(row[POSTS_FIELD_TITLE]);
   const slug = determineSlug(title, row[POSTS_FIELD_SLUG]);
@@ -106,21 +111,22 @@ function makeFrontmatter(row, extra = {}) {
   const tagsRaw = row[POSTS_FIELD_TAGS];
   const tags = Array.isArray(tagsRaw) ? tagsRaw : asArray(tagsRaw);
 
-  const hero = norm(row[POSTS_FIELD_HERO]); // gemmer ikke nu, men let at bruge senere
   const publishAt = row[POSTS_FIELD_PUBLISH_AT] ? new Date(row[POSTS_FIELD_PUBLISH_AT]) : null;
   const now = new Date();
   const draft = publishAt ? publishAt > now : false;
 
-  return {
+  const fm = {
     title,
-    description: norm(row[POSTS_FIELD_EXCERPT]),
+    description: norm(row[POSTS_FIELD_EXCERPT] || ""), // aldrig undefined
     pubDatetime: publishAt ? publishAt.toISOString() : now.toISOString(),
     modDatetime: null,
     draft,
     tags,
     slug,
-    ...extra,
+    ...extra
   };
+
+  return cleanUndefined(fm);
 }
 
 async function ensureDir(p) {
@@ -131,7 +137,7 @@ async function ensureDir(p) {
 
 function buildBody(row) {
   const baseMd = norm(row[POSTS_FIELD_BODY_MD]);
-  const country = norm(row[POSTS_FIELD_COUNTRY]);
+  // Products-feltet kommer som streng i cellFormat=string (typisk primær felt på Products-tabellen)
   const skuList = asArray(row[POSTS_FIELD_SKUS]).map((s) => s.toUpperCase().replace(/\s+/g, "_"));
 
   const content =
@@ -150,25 +156,38 @@ function buildBody(row) {
     return content;
   }
 
-  let tokens = "\n\n<!-- Auto: Affiliate-kort fra SKUs -->\n";
-  for (const sku of skuList) {
-    const countryOpt = country ? `|country=${country}` : "";
-    tokens += `\n{{aff:${sku}|as=card${countryOpt}|text=Se pris}}\n`;
+  let tokens = "\n\n<!-- Auto: Affiliate-kort fra Products/SKUs -->\n";
+  for (const raw of skuList) {
+    const sku = raw.toUpperCase(); // antager at primær felt på Products = SKU
+    tokens += `\n{{aff:${sku}|as=card|text=Se pris}}\n`;
   }
   tokens += "\n";
   return content + tokens;
 }
 
+function includeByStatusOrPublish(row) {
+  // A) Status-filter hvis sat
+  const statusField = norm(POSTS_FIELD_STATUS);
+  if (statusField) {
+    const allowed = asArray(String(POSTS_ALLOWED_STATUSES).toLowerCase());
+    const status = norm(row[statusField]).toLowerCase();
+    return allowed.length ? allowed.includes(status) : true;
+  }
+  // B) Publish-checkbox + dato ≤ nu
+  const publishOk = POSTS_FIELD_PUBLISH_BOOL ? !!row[POSTS_FIELD_PUBLISH_BOOL] : true;
+  const publishAt = row[POSTS_FIELD_PUBLISH_AT] ? new Date(row[POSTS_FIELD_PUBLISH_AT]) : null;
+  const dateOk = publishAt ? publishAt <= new Date() : true;
+  return publishOk && dateOk;
+}
+
 async function run() {
-  const allowed = POSTS_ALLOWED_STATUSES.split(",").map((s) => s.trim().toLowerCase());
   const rows = await fetchAirtablePosts();
 
   const manifest = { wrote: [], skipped: [] };
 
   for (const row of rows) {
-    const status = norm(row[POSTS_FIELD_STATUS]).toLowerCase();
-    if (!allowed.includes(status)) {
-      manifest.skipped.push({ id: row.id, status });
+    if (!includeByStatusOrPublish(row)) {
+      manifest.skipped.push({ id: row.id, reason: "filter" });
       continue;
     }
 
@@ -177,16 +196,16 @@ async function run() {
     await ensureDir(outDir);
 
     const fm = makeFrontmatter(row, {
-      country: norm(row[POSTS_FIELD_COUNTRY]) || undefined,
-      lang: norm(row[POSTS_FIELD_LANGUAGE]) || undefined,
+      country: POSTS_FIELD_COUNTRY ? norm(row[POSTS_FIELD_COUNTRY]) || undefined : undefined,
+      lang: POSTS_FIELD_LANGUAGE ? norm(row[POSTS_FIELD_LANGUAGE]) || undefined : undefined
     });
 
     const filePath = path.join(outDir, `${fm.slug}.md`);
     const body = buildBody(row);
-    const finalMd = matter.stringify(body, fm);
+    const finalMd = matter.stringify(body, fm); // fm er renset for undefined
 
     await writeFile(filePath, finalMd, "utf8");
-    manifest.wrote.push({ file: filePath, slug: fm.slug, status });
+    manifest.wrote.push({ file: filePath, slug: fm.slug });
   }
 
   await ensureDir(path.dirname(OUT_MANIFEST));
