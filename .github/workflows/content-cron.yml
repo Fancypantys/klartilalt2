@@ -2,7 +2,7 @@ name: Content sync (hourly)
 
 on:
   schedule:
-    - cron: "0 * * * *"   # hver hele time
+    - cron: "0 * * * *"   # every hour
   workflow_dispatch: {}
 
 concurrency:
@@ -11,9 +11,12 @@ concurrency:
 
 jobs:
   sync:
+    # Skip the whole job if required secrets are missing
+    if: ${{ secrets.AIRTABLE_TOKEN != '' && secrets.AIRTABLE_BASE_ID != '' && secrets.AIRTABLE_POSTS_TABLE_ID != '' }}
     runs-on: ubuntu-latest
     permissions:
-      contents: write   # kræves for commit/push
+      contents: write
+
     env:
       AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
       AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
@@ -34,6 +37,7 @@ jobs:
 
       PUBLIC_GA_ID: ${{ secrets.PUBLIC_GA_ID }}
       AFF_DEBUG: "false"
+
     steps:
       - uses: actions/checkout@v4
 
@@ -44,9 +48,14 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-          cache: "pnpm"
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
-      - run: pnpm install --frozen-lockfile
+      - name: Debug: show lockfile
+        run: ls -la pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
 
       - name: Sync content from Airtable
         run: pnpm run sync:content
