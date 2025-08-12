@@ -2,7 +2,7 @@ name: Content sync (hourly)
 
 on:
   schedule:
-    - cron: "0 * * * *"   # every hour
+    - cron: '0 * * * *'   # every hour
   workflow_dispatch: {}
 
 concurrency:
@@ -11,35 +11,34 @@ concurrency:
 
 jobs:
   sync:
-    # Skip the whole job if required secrets are missing
-    if: ${{ secrets.AIRTABLE_TOKEN != '' && secrets.AIRTABLE_BASE_ID != '' && secrets.AIRTABLE_POSTS_TABLE_ID != '' }}
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
-    env:
-      AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
-      AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
-
-      AIRTABLE_POSTS_TABLE_ID: ${{ secrets.AIRTABLE_POSTS_TABLE_ID }}
-      AIRTABLE_POSTS_VIEW_ID: ${{ secrets.AIRTABLE_POSTS_VIEW_ID }}
-
-      AIRTABLE_AFF_TABLE_ID: ${{ secrets.AIRTABLE_AFF_TABLE_ID }}
-      AIRTABLE_AFF_VIEW_ID: ${{ secrets.AIRTABLE_AFF_VIEW_ID }}
-      AIRTABLE_PROD_TABLE_ID: ${{ secrets.AIRTABLE_PROD_TABLE_ID }}
-      AIRTABLE_PROD_VIEW_ID: ${{ secrets.AIRTABLE_PROD_VIEW_ID }}
-
-      AFF_TIMEZONE: Europe/Copenhagen
-      AFF_LOCALE: da-DK
-      AFF_DATA_DIR: src/data
-      POSTS_ALLOWED_STATUSES: Ready,Scheduled,Publish
-      POSTS_AUTO_INSERT_TOKENS: "true"
-
-      PUBLIC_GA_ID: ${{ secrets.PUBLIC_GA_ID }}
-      AFF_DEBUG: "false"
-
     steps:
       - uses: actions/checkout@v4
+
+      # Check the three required secrets; set output has_secrets=true/false
+      - name: Check required secrets
+        id: check
+        shell: bash
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_POSTS_TABLE_ID: ${{ secrets.AIRTABLE_POSTS_TABLE_ID }}
+        run: |
+          missing=0
+          for v in AIRTABLE_TOKEN AIRTABLE_BASE_ID AIRTABLE_POSTS_TABLE_ID; do
+            if [ -z "${!v}" ]; then
+              echo "::warning::Missing secret: $v"
+              missing=1
+            fi
+          done
+          if [ "$missing" = "0" ]; then
+            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
 
       - uses: pnpm/action-setup@v4
         with:
@@ -51,22 +50,53 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Debug: show lockfile
-        run: ls -la pnpm-lock.yaml
-
       - name: Install deps
+        if: steps.check.outputs.has_secrets == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Sync content from Airtable
+        if: steps.check.outputs.has_secrets == 'true'
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_POSTS_TABLE_ID: ${{ secrets.AIRTABLE_POSTS_TABLE_ID }}
+          AIRTABLE_POSTS_VIEW_ID: ${{ secrets.AIRTABLE_POSTS_VIEW_ID }}
+          AIRTABLE_AFF_TABLE_ID: ${{ secrets.AIRTABLE_AFF_TABLE_ID }}
+          AIRTABLE_AFF_VIEW_ID: ${{ secrets.AIRTABLE_AFF_VIEW_ID }}
+          AIRTABLE_PROD_TABLE_ID: ${{ secrets.AIRTABLE_PROD_TABLE_ID }}
+          AIRTABLE_PROD_VIEW_ID: ${{ secrets.AIRTABLE_PROD_VIEW_ID }}
+          AFF_TIMEZONE: Europe/Copenhagen
+          AFF_LOCALE: da-DK
+          AFF_DATA_DIR: src/data
+          POSTS_ALLOWED_STATUSES: Ready,Scheduled,Publish
+          POSTS_AUTO_INSERT_TOKENS: 'true'
+          PUBLIC_GA_ID: ${{ secrets.PUBLIC_GA_ID }}
+          AFF_DEBUG: 'false'
         run: pnpm run sync:content
 
       - name: Inject affiliates
+        if: steps.check.outputs.has_secrets == 'true'
+        env:
+          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
+          AIRTABLE_AFF_TABLE_ID: ${{ secrets.AIRTABLE_AFF_TABLE_ID }}
+          AIRTABLE_AFF_VIEW_ID: ${{ secrets.AIRTABLE_AFF_VIEW_ID }}
+          AIRTABLE_PROD_TABLE_ID: ${{ secrets.AIRTABLE_PROD_TABLE_ID }}
+          AIRTABLE_PROD_VIEW_ID: ${{ secrets.AIRTABLE_PROD_VIEW_ID }}
+          AFF_TIMEZONE: Europe/Copenhagen
+          AFF_LOCALE: da-DK
+          AFF_DATA_DIR: src/data
+          PUBLIC_GA_ID: ${{ secrets.PUBLIC_GA_ID }}
+          AFF_DEBUG: 'false'
         run: pnpm run inject:affiliates
 
       - name: Verify tokens (non-blocking)
+        if: steps.check.outputs.has_secrets == 'true'
         run: pnpm run verify:affiliates || true
 
       - name: Commit & push if changed
+        if: steps.check.outputs.has_secrets == 'true'
+        shell: bash
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
@@ -77,3 +107,9 @@ jobs:
           else
             echo "No changes."
           fi
+
+      - name: Skip (missing secrets)
+        if: steps.check.outputs.has_secrets != 'true'
+        shell: bash
+        run: |
+          echo "Skipping: missing AIRTABLE_* secrets."
