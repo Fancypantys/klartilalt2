@@ -25,6 +25,8 @@
     "@tailwindcss/vite": "^4.1.11",
     "astro": "^5.12.9",
     "dayjs": "^1.11.13",
+    "glob": "^10.4.5",
+    "gray-matter": "^4.0.3",
     "lodash.kebabcase": "^4.1.1",
     "remark-collapse": "^0.1.2",
     "remark-toc": "^9.0.0",
