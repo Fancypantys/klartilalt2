@@ -18,28 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Check the three required secrets; set output has_secrets=true/false
-      - name: Check required secrets
-        id: check
-        shell: bash
-        env:
-          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
-          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
-          AIRTABLE_POSTS_TABLE_ID: ${{ secrets.AIRTABLE_POSTS_TABLE_ID }}
-        run: |
-          missing=0
-          for v in AIRTABLE_TOKEN AIRTABLE_BASE_ID AIRTABLE_POSTS_TABLE_ID; do
-            if [ -z "${!v}" ]; then
-              echo "::warning::Missing secret: $v"
-              missing=1
-            fi
-          done
-          if [ "$missing" = "0" ]; then
-            echo "has_secrets=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
-          fi
-
+      # Install pnpm + Node (with lockfile cache)
       - uses: pnpm/action-setup@v4
         with:
           version: 10
@@ -50,52 +29,85 @@ jobs:
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
+      # Map secrets/vars (supports legacy .env names) -> $GITHUB_ENV
+      - name: Load env (secrets & legacy names)
+        id: envload
+        shell: bash
+        env:
+          # Primary sources (Secrets), with fallbacks to Repo Variables
+          S_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
+          S_BASE:  ${{ secrets.AIRTABLE_BASE_ID || vars.AIRTABLE_BASE_ID }}
+
+          # POSTS table/view (support legacy AIRTABLE_TABLE_ID / AIRTABLE_VIEW_ID)
+          S_POSTS_TBL:  ${{ secrets.AIRTABLE_POSTS_TABLE_ID || secrets.AIRTABLE_TABLE_ID || vars.AIRTABLE_POSTS_TABLE_ID || vars.AIRTABLE_TABLE_ID }}
+          S_POSTS_VIEW: ${{ secrets.AIRTABLE_POSTS_VIEW_ID  || secrets.AIRTABLE_VIEW_ID  || vars.AIRTABLE_POSTS_VIEW_ID  || vars.AIRTABLE_VIEW_ID  }}
+
+          # Affiliate + Products (optional)
+          S_AFF_TBL:  ${{ secrets.AIRTABLE_AFF_TABLE_ID  || vars.AIRTABLE_AFF_TABLE_ID  }}
+          S_AFF_VIEW: ${{ secrets.AIRTABLE_AFF_VIEW_ID   || vars.AIRTABLE_AFF_VIEW_ID   }}
+          S_PROD_TBL: ${{ secrets.AIRTABLE_PROD_TABLE_ID || vars.AIRTABLE_PROD_TABLE_ID }}
+          S_PROD_VIEW: ${{ secrets.AIRTABLE_PROD_VIEW_ID || vars.AIRTABLE_PROD_VIEW_ID }}
+
+          S_PUBLIC_GA_ID: ${{ secrets.PUBLIC_GA_ID || vars.PUBLIC_GA_ID }}
+        run: |
+          # Strip CR/LF from token
+          CLEAN_TOKEN=$(printf "%s" "${S_TOKEN}" | tr -d '\r\n')
+
+          echo "AIRTABLE_TOKEN=${CLEAN_TOKEN}"           >> "$GITHUB_ENV"
+          echo "AIRTABLE_BASE_ID=${S_BASE}"              >> "$GITHUB_ENV"
+          echo "AIRTABLE_POSTS_TABLE_ID=${S_POSTS_TBL}"  >> "$GITHUB_ENV"
+          echo "AIRTABLE_POSTS_VIEW_ID=${S_POSTS_VIEW}"  >> "$GITHUB_ENV"
+          echo "AIRTABLE_AFF_TABLE_ID=${S_AFF_TBL}"      >> "$GITHUB_ENV"
+          echo "AIRTABLE_AFF_VIEW_ID=${S_AFF_VIEW}"      >> "$GITHUB_ENV"
+          echo "AIRTABLE_PROD_TABLE_ID=${S_PROD_TBL}"    >> "$GITHUB_ENV"
+          echo "AIRTABLE_PROD_VIEW_ID=${S_PROD_VIEW}"    >> "$GITHUB_ENV"
+          echo "PUBLIC_GA_ID=${S_PUBLIC_GA_ID}"          >> "$GITHUB_ENV"
+
+          # Non-secrets defaults
+          echo "AFF_TIMEZONE=Europe/Copenhagen"          >> "$GITHUB_ENV"
+          echo "AFF_LOCALE=da-DK"                        >> "$GITHUB_ENV"
+          echo "AFF_DATA_DIR=src/data"                   >> "$GITHUB_ENV"
+          echo "POSTS_ALLOWED_STATUSES=Ready,Scheduled,Publish" >> "$GITHUB_ENV"
+          echo "POSTS_AUTO_INSERT_TOKENS=true"           >> "$GITHUB_ENV"
+          echo "AFF_DEBUG=false"                         >> "$GITHUB_ENV"
+
+          # Compute HAS_SECRETS (require token + base + posts table)
+          if [ -n "$CLEAN_TOKEN" ] && [ -n "$S_BASE" ] && [ -n "$S_POSTS_TBL" ]; then
+            echo "HAS_SECRETS=true"  >> "$GITHUB_ENV"
+            echo "has_secrets=true"  >> "$GITHUB_OUTPUT"
+          else
+            echo "HAS_SECRETS=false" >> "$GITHUB_ENV"
+            echo "has_secrets=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Debug IDs (safe to print)
+        run: |
+          echo "BASE:        ${AIRTABLE_BASE_ID:-<missing>}"
+          echo "POSTS TABLE: ${AIRTABLE_POSTS_TABLE_ID:-<missing>}"
+          echo "POSTS VIEW:  ${AIRTABLE_POSTS_VIEW_ID:-<none>}"
+          echo "AFF TABLE:   ${AIRTABLE_AFF_TABLE_ID:-<none>}"
+          echo "PROD TABLE:  ${AIRTABLE_PROD_TABLE_ID:-<none>}"
+          echo "TOKEN LEN:   ${#AIRTABLE_TOKEN}"
+          echo "HAS_SECRETS: ${HAS_SECRETS}"
+
       - name: Install deps
-        if: steps.check.outputs.has_secrets == 'true'
+        if: env.HAS_SECRETS == 'true'
         run: pnpm install --frozen-lockfile
 
       - name: Sync content from Airtable
-        if: steps.check.outputs.has_secrets == 'true'
-        env:
-          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
-          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
-          AIRTABLE_POSTS_TABLE_ID: ${{ secrets.AIRTABLE_POSTS_TABLE_ID }}
-          AIRTABLE_POSTS_VIEW_ID: ${{ secrets.AIRTABLE_POSTS_VIEW_ID }}
-          AIRTABLE_AFF_TABLE_ID: ${{ secrets.AIRTABLE_AFF_TABLE_ID }}
-          AIRTABLE_AFF_VIEW_ID: ${{ secrets.AIRTABLE_AFF_VIEW_ID }}
-          AIRTABLE_PROD_TABLE_ID: ${{ secrets.AIRTABLE_PROD_TABLE_ID }}
-          AIRTABLE_PROD_VIEW_ID: ${{ secrets.AIRTABLE_PROD_VIEW_ID }}
-          AFF_TIMEZONE: Europe/Copenhagen
-          AFF_LOCALE: da-DK
-          AFF_DATA_DIR: src/data
-          POSTS_ALLOWED_STATUSES: Ready,Scheduled,Publish
-          POSTS_AUTO_INSERT_TOKENS: 'true'
-          PUBLIC_GA_ID: ${{ secrets.PUBLIC_GA_ID }}
-          AFF_DEBUG: 'false'
+        if: env.HAS_SECRETS == 'true'
         run: pnpm run sync:content
 
       - name: Inject affiliates
-        if: steps.check.outputs.has_secrets == 'true'
-        env:
-          AIRTABLE_TOKEN: ${{ secrets.AIRTABLE_TOKEN }}
-          AIRTABLE_BASE_ID: ${{ secrets.AIRTABLE_BASE_ID }}
-          AIRTABLE_AFF_TABLE_ID: ${{ secrets.AIRTABLE_AFF_TABLE_ID }}
-          AIRTABLE_AFF_VIEW_ID: ${{ secrets.AIRTABLE_AFF_VIEW_ID }}
-          AIRTABLE_PROD_TABLE_ID: ${{ secrets.AIRTABLE_PROD_TABLE_ID }}
-          AIRTABLE_PROD_VIEW_ID: ${{ secrets.AIRTABLE_PROD_VIEW_ID }}
-          AFF_TIMEZONE: Europe/Copenhagen
-          AFF_LOCALE: da-DK
-          AFF_DATA_DIR: src/data
-          PUBLIC_GA_ID: ${{ secrets.PUBLIC_GA_ID }}
-          AFF_DEBUG: 'false'
+        if: env.HAS_SECRETS == 'true'
         run: pnpm run inject:affiliates
 
       - name: Verify tokens (non-blocking)
-        if: steps.check.outputs.has_secrets == 'true'
+        if: env.HAS_SECRETS == 'true'
         run: pnpm run verify:affiliates || true
 
       - name: Commit & push if changed
-        if: steps.check.outputs.has_secrets == 'true'
+        if: env.HAS_SECRETS == 'true'
         shell: bash
         run: |
           git config user.name "github-actions"
@@ -109,7 +121,7 @@ jobs:
           fi
 
       - name: Skip (missing secrets)
-        if: steps.check.outputs.has_secrets != 'true'
+        if: env.HAS_SECRETS != 'true'
         shell: bash
         run: |
-          echo "Skipping: missing AIRTABLE_* secrets."
+          echo "Skipping: missing AIRTABLE_* (need TOKEN, BASE_ID, POSTS table id)."
