@@ -1,8 +1,7 @@
 // scripts/inject-affiliates.mjs
 // Replaces tokens in Markdown with affiliate URLs / buttons / product cards.
 
-import { readFile, writeFile } from "node:fs/promises";
-import { existsSync } from "node:fs";
+import { readFile, writeFile, mkdir } from "node:fs/promises";
 import path from "node:path";
 import { glob } from "glob";
 import matter from "gray-matter";
@@ -19,11 +18,11 @@ const need = (name) => {
 const AIRTABLE_TOKEN = need("AIRTABLE_TOKEN");
 const AIRTABLE_BASE_ID = need("AIRTABLE_BASE_ID");
 
-const AIRTABLE_AFF_TABLE_ID = clean(process.env.AIRTABLE_AFF_TABLE_ID); // required
+const AIRTABLE_AFF_TABLE_ID = clean(process.env.AIRTABLE_AFF_TABLE_ID) || "";
 if (!AIRTABLE_AFF_TABLE_ID)
   throw new Error("Missing AIRTABLE_AFF_TABLE_ID in env");
 
-const AIRTABLE_AFF_VIEW_ID = clean(process.env.AIRTABLE_AFF_VIEW_ID);
+const AIRTABLE_AFF_VIEW_ID = clean(process.env.AIRTABLE_AFF_VIEW_ID) || "";
 
 // Optional products table (for card image/name)
 const AIRTABLE_PROD_TABLE_ID = clean(process.env.AIRTABLE_PROD_TABLE_ID) || "";
@@ -183,6 +182,7 @@ async function run() {
   const files = await glob(`${DATA_DIR}/**/*.{md,mdx,markdown}`, {
     nodir: true,
   });
+
   for (const file of files) {
     const raw = await readFile(file, "utf8");
     const fm = matter(raw);
@@ -308,6 +308,7 @@ async function run() {
     }
   }
 
+  // 🔧 THIS WAS THE CRASH: we must import & call mkdir from fs/promises
   await mkdir(path.dirname(MANIFEST_OUT), { recursive: true });
   await writeFile(MANIFEST_OUT, JSON.stringify(manifest, null, 2), "utf8");
 
