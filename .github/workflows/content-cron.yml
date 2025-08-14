@@ -18,11 +18,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Install pnpm + Node (with lockfile cache)
+      # pnpm + Node (lockfile cached)
       - uses: pnpm/action-setup@v4
         with:
           version: 10
-
       - uses: actions/setup-node@v4
         with:
           node-version: 20
@@ -71,16 +70,13 @@ jobs:
           echo "POSTS_AUTO_INSERT_TOKENS=true"           >> "$GITHUB_ENV"
           echo "AFF_DEBUG=false"                         >> "$GITHUB_ENV"
 
-          # Compute HAS_SECRETS (require token + base + posts table)
+          # Compute output used by later if: conditions
           if [ -n "$CLEAN_TOKEN" ] && [ -n "$S_BASE" ] && [ -n "$S_POSTS_TBL" ]; then
-            echo "HAS_SECRETS=true"  >> "$GITHUB_ENV"
             echo "has_secrets=true"  >> "$GITHUB_OUTPUT"
           else
-            echo "HAS_SECRETS=false" >> "$GITHUB_ENV"
             echo "has_secrets=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Print lengths (helps spot stray spaces/quotes)
       - name: Debug IDs (safe lengths)
         run: |
           echo "BASE LEN:        ${#AIRTABLE_BASE_ID}"
@@ -89,11 +85,10 @@ jobs:
           echo "AFF TABLE LEN:   ${#AIRTABLE_AFF_TABLE_ID}"
           echo "PROD TABLE LEN:  ${#AIRTABLE_PROD_TABLE_ID}"
           echo "TOKEN LEN:       ${#AIRTABLE_TOKEN}"
-          echo "HAS_SECRETS:     ${HAS_SECRETS}"
 
       # Probe Airtable and auto-fix a bad view
       - name: Airtable sanity + auto-fix view
-        if: env.HAS_SECRETS == 'true'
+        if: ${{ steps.envload.outputs.has_secrets == 'true' }}
         shell: bash
         run: |
           set -e
@@ -124,23 +119,23 @@ jobs:
           fi
 
       - name: Install deps
-        if: env.HAS_SECRETS == 'true'
+        if: ${{ steps.envload.outputs.has_secrets == 'true' }}
         run: pnpm install --frozen-lockfile
 
       - name: Sync content from Airtable
-        if: env.HAS_SECRETS == 'true'
+        if: ${{ steps.envload.outputs.has_secrets == 'true' }}
         run: pnpm run sync:content
 
       - name: Inject affiliates
-        if: env.HAS_SECRETS == 'true'
+        if: ${{ steps.envload.outputs.has_secrets == 'true' }}
         run: pnpm run inject:affiliates
 
       - name: Verify tokens (non-blocking)
-        if: env.HAS_SECRETS == 'true'
+        if: ${{ steps.envload.outputs.has_secrets == 'true' }}
         run: pnpm run verify:affiliates || true
 
       - name: Commit & push if changed
-        if: env.HAS_SECRETS == 'true'
+        if: ${{ steps.envload.outputs.has_secrets == 'true' }}
         shell: bash
         run: |
           git config user.name "github-actions"
@@ -154,7 +149,8 @@ jobs:
           fi
 
       - name: Skip (missing secrets)
-        if: env.HAS_SECRETS != 'true'
+        if: ${{ steps.envload.outputs.has_secrets != 'true' }}
         shell: bash
         run: |
-          echo "Skipping: missing AIRTABLE_* (need TOKEN, BASE_ID, POSTS table id)."
+          echo 'Skipping: missing AIRTABLE_* (need TOKEN, BASE_ID, POSTS table id).'
+
