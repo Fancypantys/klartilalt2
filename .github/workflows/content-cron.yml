@@ -80,15 +80,48 @@ jobs:
             echo "has_secrets=false" >> "$GITHUB_OUTPUT"
           fi
 
-      - name: Debug IDs (safe to print)
+      # Print lengths (helps spot stray spaces/quotes)
+      - name: Debug IDs (safe lengths)
         run: |
-          echo "BASE:        ${AIRTABLE_BASE_ID:-<missing>}"
-          echo "POSTS TABLE: ${AIRTABLE_POSTS_TABLE_ID:-<missing>}"
-          echo "POSTS VIEW:  ${AIRTABLE_POSTS_VIEW_ID:-<none>}"
-          echo "AFF TABLE:   ${AIRTABLE_AFF_TABLE_ID:-<none>}"
-          echo "PROD TABLE:  ${AIRTABLE_PROD_TABLE_ID:-<none>}"
-          echo "TOKEN LEN:   ${#AIRTABLE_TOKEN}"
-          echo "HAS_SECRETS: ${HAS_SECRETS}"
+          echo "BASE LEN:        ${#AIRTABLE_BASE_ID}"
+          echo "POSTS TABLE LEN: ${#AIRTABLE_POSTS_TABLE_ID}"
+          echo "POSTS VIEW LEN:  ${#AIRTABLE_POSTS_VIEW_ID}"
+          echo "AFF TABLE LEN:   ${#AIRTABLE_AFF_TABLE_ID}"
+          echo "PROD TABLE LEN:  ${#AIRTABLE_PROD_TABLE_ID}"
+          echo "TOKEN LEN:       ${#AIRTABLE_TOKEN}"
+          echo "HAS_SECRETS:     ${HAS_SECRETS}"
+
+      # Probe Airtable and auto-fix a bad view
+      - name: Airtable sanity + auto-fix view
+        if: env.HAS_SECRETS == 'true'
+        shell: bash
+        run: |
+          set -e
+          base="$AIRTABLE_BASE_ID"
+          tbl="$AIRTABLE_POSTS_TABLE_ID"
+          view="$AIRTABLE_POSTS_VIEW_ID"
+
+          echo "Probing base+table…"
+          code1=$(curl -s -o /dev/null -w "%{http_code}" \
+            -H "Authorization: Bearer $AIRTABLE_TOKEN" \
+            "https://api.airtable.com/v0/$base/$tbl?maxRecords=1&cellFormat=string&timeZone=$AFF_TIMEZONE&userLocale=$AFF_LOCALE")
+          echo "HTTP(base+table)=$code1"
+          if [ "$code1" != "200" ]; then
+            echo "::error::Base/Table check failed ($code1). Most likely baseId or tableId mismatch, or token lacks access."
+            exit 1
+          fi
+
+          if [ -n "$view" ]; then
+            echo "Probing with view…"
+            code2=$(curl -s -o /dev/null -w "%{http_code}" \
+              -H "Authorization: Bearer $AIRTABLE_TOKEN" \
+              "https://api.airtable.com/v0/$base/$tbl?maxRecords=1&cellFormat=string&timeZone=$AFF_TIMEZONE&userLocale=$AFF_LOCALE&view=$view")
+            echo "HTTP(with view)=$code2"
+            if [ "$code2" != "200" ]; then
+              echo "::warning::View ID seems invalid for that table; continuing without view."
+              echo "AIRTABLE_POSTS_VIEW_ID=" >> "$GITHUB_ENV"
+            fi
+          fi
 
       - name: Install deps
         if: env.HAS_SECRETS == 'true'
