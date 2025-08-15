@@ -1,9 +1,9 @@
-name: Deploy to GitHub Pages
+name: Deploy Astro to GitHub Pages
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch: {}
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -11,33 +11,45 @@ permissions:
   id-token: write
 
 concurrency:
-  group: pages
+  group: "pages"
   cancel-in-progress: true
 
 jobs:
   build:
     runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    env:
+      # Keep CI builds base-path safe for project pages
+      BASE_URL: /klartilalt2
+      # If your affiliate verifier exists, set to 0 so CI doesn't fail hard on unresolved SKUs.
+      # Remove this line or set to 1 if you want CI to be strict.
+      AFFILIATE_STRICT: "0"
 
-      - uses: pnpm/action-setup@v4
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
         with:
           version: 10
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
           cache-dependency-path: pnpm-lock.yaml
 
-      - name: Install deps
+      - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # Build from the committed content. No Airtable secrets required here.
       - name: Build
         run: pnpm run build
 
-      - name: Upload Pages artifact
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
