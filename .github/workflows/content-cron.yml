@@ -129,10 +129,13 @@ jobs:
       - name: Inject affiliates
         if: ${{ steps.envload.outputs.has_secrets == 'true' }}
         run: pnpm run inject:affiliates
+        
 
       - name: Verify tokens (non-blocking)
         if: ${{ steps.envload.outputs.has_secrets == 'true' }}
         run: pnpm run verify:affiliates || true
+
+        
 
       - name: Commit & push if changed
         if: ${{ steps.envload.outputs.has_secrets == 'true' }}
