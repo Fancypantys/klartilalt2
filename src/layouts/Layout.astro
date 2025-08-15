@@ -120,6 +120,41 @@ const structuredData = {
     <slot />
     <GA />
     <AffiliateTracking />
+
+    <!-- Rewrite internal links to include BASE_URL (fix GitHub Pages /klartilalt2/ path) -->
+<script is:inline>
+  (function () {
+    const BASE = import.meta.env.BASE_URL; // e.g. "/klartilalt2/" on GH Pages, "/" locally
+
+    function fixAnchors(scope = document) {
+      // Only rewrite “root-absolute” paths like "/posts/…" → "/klartilalt2/posts/…"
+      const anchors = scope.querySelectorAll('a[href^="/"]:not([href^="//"])');
+      anchors.forEach((a) => {
+        const href = a.getAttribute("href");
+        if (!href) return;
+        // don't touch the home link if it's just "/"
+        if (href === "/") {
+          a.setAttribute("href", BASE);
+          return;
+        }
+        a.setAttribute("href", BASE + href.slice(1));
+      });
+    }
+
+    // Initial page load
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", () => fixAnchors());
+    } else {
+      fixAnchors();
+    }
+
+    // After client-side route transitions (Astro View Transitions / ClientRouter)
+    document.addEventListener("astro:after-swap", () => {
+      fixAnchors();
+    });
+  })();
+</script>
+
   </body>
 </html>
 
