@@ -7,7 +7,7 @@ import Footer from "@/components/Footer.astro";
 import { SITE } from "@/config";
 
 const BASE = import.meta.env.BASE_URL;
-// If back button is disabled, go to site root under the correct base:
+// If back button is disabled, fall back to the base (important for GH Pages)
 const backUrl = SITE.showBackButton ? `${Astro.url.pathname}` : BASE;
 ---
 
@@ -20,6 +20,10 @@ const backUrl = SITE.showBackButton ? `${Astro.url.pathname}` : BASE;
 </Layout>
 
 <script>
+// @ts-nocheck
+
+  const BASE = import.meta.env.BASE_URL;
+
   function initSearch() {
     const pageFindSearch = document.querySelector("#pagefind-search");
     if (!pageFindSearch) return;
@@ -28,13 +32,13 @@ const backUrl = SITE.showBackButton ? `${Astro.url.pathname}` : BASE;
     const onIdle = window.requestIdleCallback || ((cb) => setTimeout(cb, 1));
 
     onIdle(async () => {
-      // @ts-expect-error — package ships no types
+      // Pagefind UI ships no TS types; Vite will rewrite this bare import.
       const { PagefindUI } = await import("@pagefind/default-ui");
 
       if (import.meta.env.DEV) {
         pageFindSearch.innerHTML = `
           <div class="bg-muted/75 rounded p-4 space-y-4 mb-4">
-            <p><strong>DEV mode Warning!</strong> Build once to see search results locally.</p>
+            <p><strong>DEV mode:</strong> Build once to see search results locally.</p>
             <code class="block bg-black text-white px-2 py-1 rounded">pnpm run build</code>
           </div>
         `;
@@ -45,24 +49,24 @@ const backUrl = SITE.showBackButton ? `${Astro.url.pathname}` : BASE;
         showSubResults: true,
         showImages: false,
 
-        // 👇 IMPORTANT for GitHub Pages project sites
-        // This is where Pagefind looks for its JS bundle + index files
-        bundlePath: `${import.meta.env.BASE_URL}pagefind/`,
+        // Where Pagefind loads its JS bundle + index from (GH Pages aware)
+        bundlePath: `${BASE}pagefind/`,
 
-        // If your search result links should include the base path,
-        // Pagefind will generally preserve paths as-built; no change needed.
-        // baseUrl: import.meta.env.BASE_URL, // uncomment if you ever need it
-        processTerm: function (term) {
+        // baseUrl: BASE, // usually not needed
+        processTerm(term) {
           params.set("q", term);
           history.replaceState(history.state, "", "?" + params.toString());
 
-          const backUrl = pageFindSearch?.dataset?.backurl;
-          sessionStorage.setItem("backUrl", (backUrl || "") + "?" + params.toString());
+          // Read custom data-* attribute safely
+          const ds = pageFindSearch.dataset || {};
+          const backUrl = ds["backurl"] || "";
+          sessionStorage.setItem("backUrl", backUrl + "?" + params.toString());
 
           return term;
         },
       });
 
+      // Kick off a search if ?q=foo is present
       const query = params.get("q");
       if (query) search.triggerSearch(query);
 
@@ -70,18 +74,22 @@ const backUrl = SITE.showBackButton ? `${Astro.url.pathname}` : BASE;
       const clearButton = document.querySelector(".pagefind-ui__search-clear");
 
       function resetSearchParam(e) {
-        if (e && e.target && e.target.value !== undefined && e.target.value.trim() === "") {
+        const t = e && e.target && typeof e.target.value === "string" ? e.target : null;
+        const val = t ? t.value : "";
+        if (val.trim() === "") {
           history.replaceState(history.state, "", window.location.pathname);
         }
       }
+
       searchInput?.addEventListener("input", resetSearchParam);
       clearButton?.addEventListener("click", resetSearchParam);
     });
   }
 
+  // Re-init after client-side navigations
   document.addEventListener("astro:after-swap", () => {
     const container = document.querySelector("#pagefind-search");
-    if (container && container.querySelector("form")) return;
+    if (container && container.querySelector("form")) return; // already mounted
     initSearch();
   });
 
@@ -102,6 +110,7 @@ const backUrl = SITE.showBackButton ? `${Astro.url.pathname}` : BASE;
     --pagefind-ui-image-box-ratio: 3 / 2;
 
     form::before { background-color: var(--foreground); }
+
     input { font-weight: 400; border: 1px solid var(--border); }
     input:focus-visible { outline: 1px solid var(--accent); }
 
@@ -110,12 +119,14 @@ const backUrl = SITE.showBackButton ? `${Astro.url.pathname}` : BASE;
       outline-offset: 1px;
       outline-color: var(--accent);
     }
+
     .pagefind-ui__result-title a:focus-visible,
     .pagefind-ui__search-clear:focus-visible {
       text-decoration-line: none;
       outline-width: 2px;
       outline-style: dashed;
     }
+
     .pagefind-ui__result:last-of-type { border-bottom: 0; }
     .pagefind-ui__result-nested .pagefind-ui__result-link:before {
       font-family: system-ui;
