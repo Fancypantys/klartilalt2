@@ -5,6 +5,8 @@ import { SITE } from "@/config";
 import "@/styles/global.css";
 import GA from "@/components/GA.astro";
 import AffiliateTracking from "@/components/AffiliateTracking.astro";
+import "../styles/global.css";     // ✅ Astro will rewrite paths with base
+import { withBase } from "astro";  // we'll use this below
 
 // Base URL ("/" locally, "/klartilalt2/" on GitHub Pages)
 const BASE = import.meta.env.BASE_URL;
