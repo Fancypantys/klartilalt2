@@ -13,7 +13,7 @@ import { SITE } from "./src/config";
 
 // https://astro.build/config
 export default defineConfig({
-  site: SITE.website,              // canonical origin
+  site: "https://fancypantys.github.io/klartilalt2",              // canonical origin
   base: "/klartilalt2",            // <-- add this for GitHub Pages project sites
   integrations: [
     sitemap({
