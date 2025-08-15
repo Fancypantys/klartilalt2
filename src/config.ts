@@ -1,23 +1,43 @@
 export const SITE = {
-  website: "https://klartilalt.dk/", // replace this with your deployed domain
+  // Use your current public URL on GitHub Pages (project site)
+  // If/when you move to a custom domain, change this to e.g. "https://klartilalt.dk"
+  website: "https://fancypantys.github.io/klartilalt2",
+
   author: "Kresten",
-  profile: "https://satnaing.dev/",
+  // Optional: point to your profile (changed from the theme default)
+  profile: "https://github.com/Fancypantys",
+
   desc: "Automatiseret præpping, beredskab og gear—artikler",
   title: "Klartilalt",
-  ogImage: "/images/og.png",
+
+  // Don't include a leading slash here because your layout does `"/" + SITE.ogImage`
+  // You already generate /og.png in the build, so use that by default.
+  ogImage: "og.png",
+
   lightAndDarkMode: true,
+
+  // Listing sizes
   postPerIndex: 4,
   postPerPage: 12,
+
+  // Schedule/window
   scheduledPostMargin: 15 * 60 * 1000, // 15 minutes
+
+  // UI toggles
   showArchives: true,
   showBackButton: true, // show back button in post detail
+
+  // "Edit this page" link (point to your repo instead of the theme's)
   editPost: {
     enabled: true,
     text: "Edit page",
-    url: "https://github.com/satnaing/astro-paper/edit/main/",
+    url: "https://github.com/Fancypantys/klartilalt2/edit/main/",
   },
+
   dynamicOgImage: true,
-  dir: "ltr", // "rtl" | "auto"
-  lang: "da", // html lang code. Set this empty and default will be "en"
-  timezone: "Asia/Bangkok", // Default global timezone (IANA format) https://en.wikipedia.org/wiki/List_of_tz_database_time_zones
+
+  // Locale
+  dir: "ltr",        // "rtl" | "auto"
+  lang: "da",        // html lang code
+  timezone: "Europe/Copenhagen", // IANA tz for your region
 } as const;
