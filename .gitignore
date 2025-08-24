@@ -32,3 +32,6 @@ Thumbs.db
 !.vscode/extensions.json
 
 *.zip
+
+# ignore npm lockfile
+package-lock.json
