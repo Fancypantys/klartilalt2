@@ -4,3 +4,6 @@ export function withBase(path: string): string {
   if (!path || path === "/") return base;
   return base + path.replace(/^\//, "");
 }
+
+// Alias for consistency with existing code references
+export const toBase = withBase;

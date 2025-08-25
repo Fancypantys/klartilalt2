@@ -1,6 +1,7 @@
 ---
 import IconChevronLeft from "@/assets/icons/IconChevronLeft.svg";
 import LinkButton from "./LinkButton.astro";
+import { withBase } from "@/utils/url";
 import { SITE } from "@/config";
 ---
 
@@ -9,7 +10,7 @@ import { SITE } from "@/config";
     <div class="mx-auto flex w-full max-w-app items-center justify-start px-2">
       <LinkButton
         id="back-button"
-        href="/"
+        href={withBase("/")}
         class="focus-outline mt-8 mb-2 flex hover:text-foreground/75"
       >
         <IconChevronLeft class="inline-block size-6 rtl:rotate-180" />
@@ -20,7 +21,7 @@ import { SITE } from "@/config";
 }
 
 <script>
-  /* Update Search Praam */
+  /* Update Search Param */
   function updateGoBackUrl() {
     const backButton: HTMLAnchorElement | null =
       document.querySelector("#back-button");

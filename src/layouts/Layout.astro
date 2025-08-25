@@ -5,8 +5,6 @@ import { SITE } from "@/config";
 import "@/styles/global.css";
 import GA from "@/components/GA.astro";
 import AffiliateTracking from "@/components/AffiliateTracking.astro";
-import "../styles/global.css";     // ✅ Astro will rewrite paths with base
-import { withBase } from "astro";  // we'll use this below
 
 // Base URL ("/" locally, "/klartilalt2/" on GitHub Pages)
 const BASE = import.meta.env.BASE_URL;
@@ -31,7 +29,6 @@ const {
   author = SITE.author,
   profile = SITE.profile,
   description = SITE.desc,
-  // ✅ default uses BASE and strips a leading slash if present
   ogImage = defaultOg,
   canonicalURL = new URL(Astro.url.pathname, Astro.url),
   pubDatetime,
@@ -129,36 +126,6 @@ const structuredData = {
     <slot />
     <GA />
     <AffiliateTracking />
-
-    <!-- ✅ Rewrite root-absolute links with BASE on first load and after transitions -->
-    <script is:inline>
-      (function () {
-        const BASE = import.meta.env.BASE_URL;
-
-        function fixAnchors(scope = document) {
-          const anchors = scope.querySelectorAll('a[href^="/"]:not([href^="//"])');
-          anchors.forEach((a) => {
-            const href = a.getAttribute("href");
-            if (!href) return;
-            if (href === "/") {
-              a.setAttribute("href", BASE);
-              return;
-            }
-            a.setAttribute("href", BASE + href.slice(1));
-          });
-        }
-
-        if (document.readyState === "loading") {
-          document.addEventListener("DOMContentLoaded", () => fixAnchors());
-        } else {
-          fixAnchors();
-        }
-
-        document.addEventListener("astro:after-swap", () => {
-          fixAnchors();
-        });
-      })();
-    </script>
   </body>
 </html>
 
