@@ -3,7 +3,7 @@ title: Emergency Preparedness Guide
 description: >-
   A comprehensive guide to preparing for emergencies, covering essential
   supplies and strategies.
-pubDatetime: '2025-09-22T11:13:00.581Z'
+pubDatetime: '2025-09-22T12:29:46.977Z'
 draft: false
 tags:
   - survival
@@ -20,5 +20,5 @@ slug: emergency-preparedness-guide
 
 <!-- Auto: Affiliate-kort fra Products/SKUs -->
 
-<div class="aff-card"><img src="abstract_15.png (https://v5.airtableusercontent.com/v3/u/45/45/1758549600000/q29j5FVy3BYgtGLJ2kHkrQ/-qsz1OOjvhj0n5GFoUlxrTcBnIK1E5x9Id4jLDREYKHX4IpJwLeKnEjYffNq0LJDn2FQ1NKDOMHYfEK_nfxi8DWZw-A9kSslZcHA6w9g1G0diQAGhMeJmVp37YK4g2zyCVVo5TKa7el-c8G4OJlA2zBOgZhKA2DEqvADWmOyslA/FVTBpZrMWRJLdA3RvLzkz1DJ7BLivB_KwiIXaiGT9kM)" alt="Crisis Pack Essentials" class="aff-card__img" /><div class="aff-card__meta"><div class="aff-card__title">Crisis Pack Essentials</div><a class="aff-btn" href="https://affiliate.homeessentialsee62.com/deal789?utm_source=klartilalt&utm_medium=affiliate&subid=emergency-preparedness-guide-2025-09-22" rel="sponsored nofollow noopener" target="_blank">Se pris</a></div></div>
+<div class="aff-card"><img src="abstract_15.png (https://v5.airtableusercontent.com/v3/u/45/45/1758556800000/ZT4io3cEG2xyeCg4jso-wA/IXP6-5bUnJ3xzykKpPUiorCzP-1ChCI9yDA424pEjZCuprCM7h1Vb1374meW1pbdrzMG8qxcrRoXwmVZ2gxVW92cMpl3Bd4Ke0WyRy17g82cCYv96qx55gJKD4COB458ZNvZuiQXV1sKzQOjOHQOXhl3QLh2dDok3XYmpAFIiBI/R0G-a3gMo9lb9ypQ8RGs952aISvhzjjbHzQk1ZL_64o)" alt="Crisis Pack Essentials" class="aff-card__img" /><div class="aff-card__meta"><div class="aff-card__title">Crisis Pack Essentials</div><a class="aff-btn" href="https://affiliate.homeessentialsee62.com/deal789?utm_source=klartilalt&utm_medium=affiliate&subid=emergency-preparedness-guide-2025-09-22" rel="sponsored nofollow noopener" target="_blank">Se pris</a></div></div>
 
