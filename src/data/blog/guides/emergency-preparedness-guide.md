@@ -3,7 +3,7 @@ title: Emergency Preparedness Guide
 description: >-
   A comprehensive guide to preparing for emergencies, covering essential
   supplies and strategies.
-pubDatetime: '2025-09-26T10:14:54.573Z'
+pubDatetime: '2025-09-26T11:11:46.977Z'
 draft: false
 tags:
   - survival
